@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dapur Hemat</title>
+<meta name="description" content="Susun menu harian dan daftar belanja dapur yang muat di budget. Gratis untuk ibu rumah tangga.">
+<meta name="theme-color" content="#1F6B43" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121A15" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta property="og:title" content="Dapur Hemat">
+<meta property="og:description" content="Menu harian dan daftar belanja dapur sesuai budget.">
+<meta property="og:image" content="/icons/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Dapur<span>Hemat</span></h1>
+      <p class="tag">Isi budget dan bahan yang ada di rumah. Dapur Hemat menyusun menu dan daftar belanja yang muat di kantong.</p>
+    </div>
+    <span id="mode" class="mode">AI aktif</span>
+  </header>
+
+  <div class="install" id="install" hidden>
+    <p id="installText">Pasang Dapur Hemat di layar utama HP supaya mudah dibuka.</p>
+    <div class="row">
+      <button class="copy" id="installBtn" type="button">Pasang</button>
+      <button class="ghost" id="installClose" type="button">Nanti saja</button>
+    </div>
+  </div>
+  <p class="offline" id="offline" hidden>Sedang offline. Menu tetap bisa disusun dengan mode cepat.</p>
+
+  <div class="grid">
+    <form class="form" id="f" novalidate>
+      <div class="field">
+        <label class="label" for="budget">Budget lauk &amp; sayur per hari</label>
+        <div class="row">
+          <div class="money"><span>Rp</span><input id="budget" type="number" inputmode="numeric" min="5000" max="1000000" step="1000" value="35000"></div>
+        </div>
+        <div class="row" id="budgetQuick"></div>
+      </div>
+
+      <div class="row spread">
+        <div class="field">
+          <span class="label">Jumlah orang</span>
+          <div class="stepper"><button type="button" id="minus" aria-label="Kurangi orang">−</button><output id="ppl">4 orang</output><button type="button" id="plus" aria-label="Tambah orang">+</button></div>
+        </div>
+        <div class="field">
+          <span class="label">Rencana untuk</span>
+          <div class="seg" id="days"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Bahan yang sudah ada di rumah</span>
+        <div class="row" id="owned"></div>
+        <input id="ownedExtra" class="textin" type="text" maxlength="200" placeholder="Bahan lain, pisahkan dengan koma">
+      </div>
+
+      <div class="field">
+        <span class="label">Keluarga</span>
+        <div class="row" id="prefs"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="region">Daerah (untuk perkiraan harga)</label>
+        <input id="region" class="textin" type="text" maxlength="60" placeholder="mis. Surabaya, Bandung">
+      </div>
+
+      <button class="go" id="go" type="submit">Susun Menu</button>
+      <p class="hint">Beras, minyak, garam, gula, kecap, dan bawang dianggap sudah ada. Harga adalah perkiraan pasar tradisional.</p>
+    </form>
+
+    <div class="col">
+      <section class="out" id="out" aria-live="polite"></section>
+
+      <section class="fb" id="fb" aria-labelledby="fbTitle">
+        <div>
+          <h2 id="fbTitle">Bagaimana menurut Ibu?</h2>
+          <p class="hint">Empat pertanyaan singkat, kurang dari 1 menit. Jawaban Ibu membantu kami memperbaiki aplikasi ini.</p>
+        </div>
+        <div id="fbQs" class="fb-qs"></div>
+        <div class="field">
+          <label class="label" for="fbNote">Saran atau keluhan (boleh dikosongkan)</label>
+          <textarea id="fbNote" class="fbnote" rows="3" maxlength="1000" placeholder="mis. Menunya kurang variasi, harga tahu di sini lebih mahal, ingin ada menu sarapan"></textarea>
+        </div>
+        <button class="go" id="fbSend" type="button">Kirim umpan balik</button>
+        <div id="fbResult" hidden></div>
+      </section>
+    </div>
+  </div>
+</div>
+<footer class="foot">
+  <span>Dapur Hemat · harga adalah perkiraan, bisa berbeda di pasar Ibu.</span>
+  <span><a href="/">Tentang Dapur Hemat</a> · <a href="/privasi">Kebijakan privasi</a></span>
+</footer>
+<script src="/engine.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

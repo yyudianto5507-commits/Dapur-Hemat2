@@ -3,16 +3,33 @@
   "short_name": "Dapur Hemat",
   "description": "Menu harian dan daftar belanja dapur sesuai budget.",
   "lang": "id",
-  "start_url": "/?src=pwa",
+  "start_url": "/app?src=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F3F6F1",
   "theme_color": "#1F6B43",
-  "categories": ["food", "lifestyle", "finance"],
+  "categories": [
+    "food",
+    "lifestyle",
+    "finance"
+  ],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

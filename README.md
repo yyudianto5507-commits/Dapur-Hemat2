@@ -6,7 +6,9 @@ Web app untuk ibu rumah tangga: isi budget, jumlah orang, dan bahan yang ada di 
 
 | Bagian | Fungsi |
 |---|---|
-| `public/` | Tampilan aplikasi: halaman utama, mesin menu cadangan (`engine.js`), ikon, service worker untuk offline, kebijakan privasi |
+| `public/index.html` + `landing.css` | Landing page di alamat utama (`/`) |
+| `public/app.html` | Aplikasi Dapur Hemat, dibuka di `/app` |
+| `public/` lainnya | Mesin menu cadangan (`engine.js`), ikon, service worker untuk offline, kebijakan privasi (`/privasi`) |
 | `api/menu.js` | Server yang memanggil AI Claude. API key hanya disimpan di server, tidak pernah sampai ke HP pengguna |
 | `api/feedback.js` | Meneruskan umpan balik pengguna ke Google Sheets |
 | `apps-script/Code.gs` | Kode penerima umpan balik di Google Sheets |
@@ -35,7 +37,7 @@ Cara kerjanya: HP pengguna mengirim isian ke `/api/menu`, server meminta Claude 
 4. Tekan **Deploy**. Setelah selesai, Anda mendapat alamat seperti `dapur-hemat.vercel.app`.
 
 ### 3. Coba
-Buka alamat tersebut di HP, isi form, tekan **Susun Menu**. Label di kanan atas berubah menjadi **AI aktif** jika AI berjalan. Jika muncul **Mode cepat**, periksa API key (lihat bagian Masalah umum).
+Buka alamat tersebut di HP. Alamat utama menampilkan landing page; tombol **Susun menu sekarang** membuka aplikasi di `/app`. Isi form, tekan **Susun Menu**. Label di kanan atas berubah menjadi **AI aktif** jika AI berjalan. Jika muncul **Mode cepat**, periksa API key (lihat bagian Masalah umum).
 
 ### 4. Umpan balik ke Google Sheets
 1. Buat Google Sheet baru, beri nama "Dapur Hemat – Umpan balik".
