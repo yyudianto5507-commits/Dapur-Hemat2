@@ -1,0 +1,12 @@
+{
+  "name": "dapur-hemat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dapur Hemat: menu harian dan daftar belanja dapur sesuai budget",
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node scripts/test.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
