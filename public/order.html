@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pesan Premium · Dapur Hemat</title>
+<meta name="description" content="Pesan Dapur Hemat Premium. Bayar lewat transfer bank, QRIS, atau e-wallet, lalu konfirmasi lewat WhatsApp.">
+<meta name="theme-color" content="#1F6B43">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap">
+<link rel="stylesheet" href="/landing.css">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="/" aria-label="Dapur Hemat, beranda">
+      <img src="/icons/icon-192.png" alt="" width="34" height="34">
+      <span>Dapur<b>Hemat</b></span>
+    </a>
+    <a class="btn btn-sm btn-ghost" href="/app">Buka aplikasi</a>
+  </div>
+</header>
+
+<main class="wrap order">
+  <div class="order-head">
+    <p class="eyebrow">Dapur Hemat Premium</p>
+    <h1>Pesan Premium</h1>
+    <p class="lead">Isi data di bawah. Setelah pesanan tercatat, Ibu mendapat nomor pesanan dan cara pembayaran. Premium diaktifkan setelah pembayaran kami terima.</p>
+  </div>
+
+  <div class="order-grid">
+    <form id="orderForm" class="card order-form" novalidate>
+      <fieldset class="fs">
+        <legend>1. Pilih paket</legend>
+        <div id="packages" class="pkg-list" role="radiogroup" aria-label="Paket"></div>
+        <p class="field-err" id="err-paket" hidden></p>
+      </fieldset>
+
+      <fieldset class="fs">
+        <legend>2. Data Ibu</legend>
+        <div class="f">
+          <label for="nama">Nama</label>
+          <input id="nama" name="nama" type="text" autocomplete="name" maxlength="80" required>
+          <p class="field-err" id="err-nama" hidden></p>
+        </div>
+        <div class="f">
+          <label for="whatsapp">Nomor WhatsApp</label>
+          <input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" placeholder="0812 3456 7890" maxlength="20" required>
+          <p class="hint-sm">Untuk konfirmasi pembayaran dan aktivasi Premium.</p>
+          <p class="field-err" id="err-whatsapp" hidden></p>
+        </div>
+        <div class="f">
+          <label for="email">Email <span class="opt">(boleh dikosongkan)</span></label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="120">
+          <p class="field-err" id="err-email" hidden></p>
+        </div>
+        <div class="f">
+          <label for="daerah">Kota/kabupaten <span class="opt">(boleh dikosongkan)</span></label>
+          <input id="daerah" name="daerah" type="text" maxlength="60" placeholder="mis. Sidoarjo">
+        </div>
+        <div class="f">
+          <label for="catatan">Catatan <span class="opt">(boleh dikosongkan)</span></label>
+          <textarea id="catatan" name="catatan" rows="3" maxlength="500" placeholder="mis. ada anggota keluarga yang diet rendah garam"></textarea>
+        </div>
+        <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+      </fieldset>
+
+      <fieldset class="fs" id="payFs">
+        <legend>3. Cara bayar</legend>
+        <div id="methods" class="pay-list" role="radiogroup" aria-label="Cara bayar"></div>
+        <p class="field-err" id="err-bayar" hidden></p>
+      </fieldset>
+
+      <label class="agree" for="setuju">
+        <input id="setuju" type="checkbox">
+        <span>Saya setuju data di atas dipakai untuk memproses pesanan, sesuai <a href="/privasi">kebijakan privasi</a>.</span>
+      </label>
+      <p class="field-err" id="err-setuju" hidden></p>
+
+      <div class="order-total">
+        <span>Total</span>
+        <strong id="totalText">Rp0</strong>
+      </div>
+      <p class="hint-sm">Saat pembayaran, total ditambah kode unik 3 digit supaya transfer Ibu mudah dikenali.</p>
+
+      <button class="btn btn-block" id="submitBtn" type="submit">Pesan sekarang</button>
+      <p class="form-msg" id="formMsg" role="alert" hidden></p>
+    </form>
+
+    <aside class="card benefits" aria-labelledby="benTitle">
+      <h2 id="benTitle">Yang Ibu dapat</h2>
+      <ul id="benefits" class="ben-list"></ul>
+      <div class="free-note">
+        <b>Versi gratis tetap ada.</b>
+        <p>Susun menu harian dan daftar belanja tetap bisa dipakai tanpa membayar.</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Setelah pesanan tercatat -->
+  <section id="done" class="card done" hidden aria-live="polite">
+    <p class="eyebrow">Pesanan tercatat</p>
+    <h2>Terima kasih, <span id="dNama"></span>!</h2>
+    <div class="done-id"><span>No. pesanan</span><strong id="dId"></strong></div>
+
+    <div class="pay-box">
+      <p class="pay-amount-label">Bayar tepat sejumlah</p>
+      <p class="pay-amount" id="dTotal"></p>
+      <p class="hint-sm" id="dBreak"></p>
+      <button class="btn btn-ghost btn-sm" id="copyAmount" type="button">Salin nominal</button>
+    </div>
+
+    <div id="dMethod" class="pay-detail"></div>
+
+    <ol class="done-steps">
+      <li>Bayar sesuai nominal di atas, termasuk 3 digit terakhir.</li>
+      <li>Kirim bukti bayar lewat WhatsApp dengan tombol di bawah.</li>
+      <li>Premium diaktifkan setelah pembayaran kami cek, biasanya di hari yang sama.</li>
+    </ol>
+
+    <a class="btn btn-block" id="waBtn" href="#" target="_blank" rel="noopener">Konfirmasi lewat WhatsApp</a>
+    <p class="hint-sm" id="waNote" hidden></p>
+    <p class="hint-sm">Simpan nomor pesanan ini. Jika tombol WhatsApp tidak terbuka, kirim pesan berisi nomor pesanan dan bukti bayar ke nomor admin di atas.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="brand" href="/"><img src="/icons/icon-192.png" alt="" width="28" height="28"><span>Dapur<b>Hemat</b></span></a>
+    <nav aria-label="Tautan bawah">
+      <a href="/app">Buka aplikasi</a>
+      <a href="/privasi">Kebijakan privasi</a>
+    </nav>
+  </div>
+</footer>
+<script src="/order.js"></script>
+</body>
+</html>

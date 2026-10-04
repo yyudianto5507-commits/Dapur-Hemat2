@@ -79,6 +79,13 @@ export function normalizePlan(x, nDays) {
   return { days, shopping, tips: clean(x.tips, 300) };
 }
 
+/* Ringkas pesan error penyedia AI supaya terbaca penuh di Vercel Logs. */
+function errDetail(provider, status, raw) {
+  let msg = raw;
+  try { const j = JSON.parse(raw); msg = (j.error && (j.error.message || j.error.status)) || raw; } catch (e) { /* teks biasa */ }
+  return provider + " " + status + ": " + String(msg).slice(0, 300);
+}
+
 async function callClaude(input) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -95,16 +102,48 @@ async function callClaude(input) {
     }),
     signal: AbortSignal.timeout(40000)
   });
-  if (res.status === 429 || res.status === 529) throw { code: "rate_limited" };
-  if (!res.ok) throw { code: "upstream", detail: res.status + " " + (await res.text()).slice(0, 300) };
+  if (res.status === 429 || res.status === 529) throw { code: "rate_limited", detail: "claude " + res.status };
+  if (!res.ok) throw { code: "upstream", detail: errDetail("claude", res.status, await res.text()) };
   const data = await res.json();
   return (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+}
+
+/* Gemini dari Google AI Studio (ada paket gratis). */
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+async function callGemini(input) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(GEMINI_MODEL) + ":generateContent";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: [{ role: "user", parts: [{ text: buildPrompt(input) }] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 8192 }
+    }),
+    signal: AbortSignal.timeout(40000)
+  });
+  if (res.status === 429 || res.status === 503) throw { code: "rate_limited", detail: "gemini " + res.status };
+  if (!res.ok) throw { code: "upstream", detail: errDetail("gemini", res.status, await res.text()) };
+  const data = await res.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  return parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("");
+}
+
+/* Urutan penyedia: AI_PROVIDER=gemini memakai Gemini dulu; jika tidak, Claude dulu. Yang tidak punya key dilewati. */
+export function providers() {
+  const list = [];
+  if (process.env.ANTHROPIC_API_KEY) list.push(["claude", callClaude]);
+  if (process.env.GEMINI_API_KEY) list.push(["gemini", callGemini]);
+  if (list.length < 2) return list;
+  if ((process.env.AI_PROVIDER || "").toLowerCase() === "gemini") list.reverse();
+  return list;
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return res.status(405).json({ error: "method_not_allowed" }); }
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: "not_configured" });
+  const list = providers();
+  if (list.length === 0) return res.status(503).json({ error: "not_configured" });
 
   const ip = clientIp(req);
   if (!(await allow("ip:" + ip, PER_IP_HOUR, 3600))) return res.status(429).json({ error: "rate_limited" });
@@ -114,15 +153,22 @@ export default async function handler(req, res) {
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   const input = parseInput(body);
 
-  try {
-    const text = await callClaude(input);
-    const plan = normalizePlan(extractJson(text), input.days);
-    if (!plan) { console.error("menu: invalid_json", text.slice(0, 300)); return res.status(502).json({ error: "invalid_json" }); }
-    return res.status(200).json(plan);
-  } catch (e) {
-    if (e && e.code === "rate_limited") return res.status(429).json({ error: "rate_limited" });
-    if (e && e.name === "TimeoutError") return res.status(504).json({ error: "timeout" });
-    console.error("menu: upstream", e && (e.detail || e.message || e));
-    return res.status(502).json({ error: "upstream" });
+  let lastErr = null;
+  for (const [name, call] of list) {
+    try {
+      const text = await call(input);
+      const plan = normalizePlan(extractJson(text), input.days);
+      if (!plan) { console.error("menu: invalid_json dari " + name, text.slice(0, 300)); lastErr = { code: "invalid_json" }; continue; }
+      plan.provider = name;
+      return res.status(200).json(plan);
+    } catch (e) {
+      lastErr = e;
+      console.error("menu: gagal " + name + " →", e && (e.detail || e.name || e.message || e));
+      // lanjut ke penyedia berikutnya jika ada
+    }
   }
+  if (lastErr && lastErr.code === "rate_limited") return res.status(429).json({ error: "rate_limited" });
+  if (lastErr && lastErr.name === "TimeoutError") return res.status(504).json({ error: "timeout" });
+  if (lastErr && lastErr.code === "invalid_json") return res.status(502).json({ error: "invalid_json" });
+  return res.status(502).json({ error: "upstream" });
 }

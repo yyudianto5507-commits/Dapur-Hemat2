@@ -107,5 +107,73 @@ await ok("API umpan balik: diteruskan ke Google Sheets dengan rahasia", async ()
   const e = mockRes(); await fb.default(req({}, "4.4.4.5"), e); assert.equal(e.code, 400);
 });
 
+
+await ok("Gemini: dipakai saat Claude gagal (mis. saldo habis)", async () => {
+  process.env.ANTHROPIC_API_KEY = "test"; process.env.GEMINI_API_KEY = "g-test"; delete process.env.AI_PROVIDER;
+  const calls = [];
+  globalThis.fetch = async (url, opt) => {
+    calls.push(String(url));
+    if (String(url).includes("anthropic")) return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low" } }), { status: 400 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(aiPlan) }] } }] }), { status: 200 });
+  };
+  const r = mockRes(); await menu.default(req({ days: 3 }, "5.5.5.1"), r);
+  assert.equal(r.code, 200); assert.equal(r.body.provider, "gemini");
+  assert.ok(calls[0].includes("anthropic") && calls[1].includes("generativelanguage"));
+});
+await ok("Gemini: AI_PROVIDER=gemini dipanggil lebih dulu; hanya Gemini juga jalan", async () => {
+  process.env.AI_PROVIDER = "gemini";
+  const calls = [];
+  globalThis.fetch = async (url) => { calls.push(String(url)); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(aiPlan) }] } }] }), { status: 200 }); };
+  let r = mockRes(); await menu.default(req({ days: 3 }, "5.5.5.2"), r);
+  assert.equal(r.code, 200); assert.ok(calls[0].includes("generativelanguage"));
+  delete process.env.ANTHROPIC_API_KEY; delete process.env.AI_PROVIDER;
+  r = mockRes(); await menu.default(req({ days: 3 }, "5.5.5.3"), r);
+  assert.equal(r.code, 200); assert.equal(r.body.provider, "gemini");
+  delete process.env.GEMINI_API_KEY;
+});
+
+/* Pesanan Premium */
+const order = await import("../api/order.js");
+await ok("order: nomor WA dinormalkan ke 62…, nomor aneh ditolak", () => {
+  assert.equal(order.normalizePhone("0812-3456-7890"), "6281234567890");
+  assert.equal(order.normalizePhone("+62 812 3456 7890"), "6281234567890");
+  assert.equal(order.normalizePhone("812345678"), "62812345678");
+  assert.equal(order.normalizePhone("021555"), "");
+});
+await ok("order: GET menampilkan paket dan cara bayar dari env", async () => {
+  process.env.PAYMENT_BANK = "BCA 1234567890 a.n. Yudi | BRI 0987654321 a.n. Yudi";
+  process.env.PAYMENT_QRIS_IMAGE = "/qris.png"; process.env.ADMIN_WHATSAPP = "0812 1111 2222";
+  const r = mockRes(); await order.default({ method: "GET", headers: {}, socket: {} }, r);
+  assert.equal(r.code, 200); assert.equal(r.body.packages.length, 3);
+  assert.deepEqual(r.body.methods.map((m) => m.id), ["transfer", "qris"]);
+  assert.equal(r.body.methods[0].lines.length, 2); assert.equal(r.body.adminWhatsapp, "6281211112222");
+});
+await ok("order: isian salah dijawab per kolom", async () => {
+  const r = mockRes(); await order.default(req({ nama: "A", whatsapp: "123", email: "x@", paket: "palsu", bayar: "cash" }, "7.7.7.1"), r);
+  assert.equal(r.code, 400);
+  assert.deepEqual(Object.keys(r.body.fields).sort(), ["bayar", "email", "nama", "paket", "setuju", "whatsapp"]);
+});
+await ok("order: pesanan sah tercatat ke Sheets, harga dari server + kode unik", async () => {
+  let sent; globalThis.fetch = async (url, opt) => { sent = JSON.parse(opt.body); return new Response('{"ok":true}', { status: 200 }); };
+  const r = mockRes();
+  await order.default(req({ nama: "Siti Aminah", whatsapp: "081234567890", paket: "tiga", bayar: "transfer", setuju: true, harga: 1, catatan: "=cmd" }, "7.7.7.2"), r);
+  assert.equal(r.code, 200); assert.ok(/^DH-\d{6}-[A-Z0-9]{4}$/.test(r.body.order.id));
+  assert.equal(sent.type, "order"); assert.equal(sent.row.harga, 25000);
+  assert.ok(sent.row.kode_unik >= 1 && sent.row.kode_unik <= 299); assert.equal(sent.row.total, 25000 + sent.row.kode_unik);
+  assert.equal(sent.row.whatsapp, "6281234567890"); assert.ok(sent.row.catatan.startsWith("'="));
+  assert.equal(r.body.method.id, "transfer"); assert.equal(r.body.adminWhatsapp, "6281211112222");
+});
+await ok("order: jebakan spam diabaikan tanpa mencatat", async () => {
+  let called = false; globalThis.fetch = async () => { called = true; return new Response('{"ok":true}'); };
+  const r = mockRes(); await order.default(req({ website: "http://spam", nama: "Bot" }, "7.7.7.3"), r);
+  assert.equal(r.code, 200); assert.equal(called, false);
+});
+await ok("order: tanpa cara bayar di env, pesanan tetap bisa (admin menghubungi)", async () => {
+  delete process.env.PAYMENT_BANK; delete process.env.PAYMENT_QRIS_IMAGE;
+  globalThis.fetch = async () => new Response('{"ok":true}', { status: 200 });
+  const r = mockRes(); await order.default(req({ nama: "Rina", whatsapp: "085711112222", paket: "bulan", setuju: true }, "7.7.7.4"), r);
+  assert.equal(r.code, 200); assert.equal(r.body.method, null);
+});
+
 globalThis.fetch = realFetch;
 console.log(`\n${passed} uji lulus`);

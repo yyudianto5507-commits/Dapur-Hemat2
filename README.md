@@ -63,7 +63,10 @@ Beli domain (misalnya `dapurhemat.id`), lalu di Vercel buka **Settings → Domai
 
 | Nama | Wajib | Keterangan |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Ya | API key Claude |
+| `ANTHROPIC_API_KEY` | Salah satu | API key Claude (perlu saldo) |
+| `GEMINI_API_KEY` | Salah satu | API key Gemini dari aistudio.google.com/apikey (ada paket gratis). Jika keduanya diisi, Gemini menjadi cadangan saat Claude gagal |
+| `AI_PROVIDER` | Tidak | Isi `gemini` supaya Gemini dipakai lebih dulu |
+| `GEMINI_MODEL` | Tidak | Bawaan `gemini-flash-latest` |
 | `CLAUDE_MODEL` | Tidak | Bawaan `claude-haiku-4-5-20251001` (cepat dan hemat). Bisa diganti model yang lebih pintar jika kualitas menu kurang |
 | `LIMIT_PER_IP_HOUR` | Tidak | Bawaan 20 |
 | `LIMIT_GLOBAL_DAY` | Tidak | Bawaan 2000 |
@@ -86,3 +89,20 @@ Beli domain (misalnya `dapurhemat.id`), lalu di Vercel buka **Settings → Domai
 | Umpan balik gagal terkirim | URL Apps Script salah, akses bukan "Siapa saja", atau `FEEDBACK_SECRET` tidak sama dengan `RAHASIA` di Code.gs |
 | Pengguna masih melihat versi lama | Naikkan `VERSION` di `public/sw.js`, unggah ulang |
 | Tombol "Pasang" tidak muncul di iPhone | Normal. iPhone memakai tombol Bagikan → "Tambah ke Layar Utama"; aplikasi menampilkan petunjuk ini otomatis |
+
+## Pesanan Premium
+
+Halaman `/order` menerima pesanan Dapur Hemat Premium. Alurnya:
+
+1. Ibu memilih paket, mengisi nama dan nomor WhatsApp, lalu memilih cara bayar.
+2. Pesanan dicatat di tab **Pesanan** pada spreadsheet yang sama dengan umpan balik, dengan status "Menunggu pembayaran". Jika `KIRIM_EMAIL_PESANAN` di Apps Script bernilai `true`, Anda juga menerima email.
+3. Ibu melihat nomor pesanan, nominal yang harus dibayar (harga + kode unik 3 digit), detail rekening/QRIS, dan tombol **Konfirmasi lewat WhatsApp** yang langsung membuka chat ke nomor admin berisi detail pesanan.
+4. Anda mencocokkan mutasi rekening dengan nominal persis tersebut, mengubah kolom **Status** menjadi "Lunas", lalu mengaktifkan Premium untuk pelanggan.
+
+### Yang perlu diatur
+- **Apps Script:** tempel ulang `apps-script/Code.gs` versi baru, lalu **Terapkan → Kelola deployment → ikon pensil → Versi: Versi baru → Terapkan**. URL tidak berubah. Saat diminta izin baru (untuk mengirim email), izinkan.
+- **Vercel → Environment Variables:** `ADMIN_WHATSAPP`, `PAYMENT_BANK`, dan bila perlu `PAYMENT_EWALLET` serta `PAYMENT_QRIS_IMAGE`. Lihat contoh di `.env.example`. Setelah itu **Redeploy**.
+- **QRIS (opsional):** simpan gambar QRIS Anda sebagai `public/qris.png`, unggah ke GitHub, lalu isi `PAYMENT_QRIS_IMAGE` = `/qris.png`.
+
+### Mengubah harga dan manfaat
+Harga dan manfaat paket ada di `api/_lib/products.js`. Bagian **Harga** di landing page (`public/index.html`, cari `id="harga"`) menulis ulang harga dan manfaat yang sama, jadi ubah keduanya bersamaan. Pastikan manfaat yang dijanjikan memang Anda berikan kepada pelanggan.
