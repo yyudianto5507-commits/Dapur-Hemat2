@@ -138,3 +138,8 @@ Ubah kolom **Status** di tab **Kode** menjadi **Nonaktif**. Kode berhenti bekerj
 4. Jika semua gagal: aplikasi memakai mode cepat.
 
 Isi `AI_PROVIDER=gemini` supaya Gemini dicoba lebih dulu. Pesan error setiap penyedia tercatat lengkap di Vercel → Logs.
+
+## Gambar dan video
+- `public/media/`: video demo (`demo.mp4`, 720p) dan 5 gambar yang tampil di bagian **Video** pada landing page.
+- Tombol **Dengarkan penjelasan** di landing page membacakan penjelasan memakai suara bawaan HP pengunjung (bahasa Indonesia, tanpa file suara tambahan).
+- Untuk mengganti video atau gambar, timpa file di `public/media/` dengan nama yang sama.

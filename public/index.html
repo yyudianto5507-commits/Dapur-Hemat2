@@ -29,6 +29,7 @@
       <span>Dapur<b>Hemat</b></span>
     </a>
     <nav class="nav-links" aria-label="Bagian halaman">
+      <a href="#lihat">Video</a>
       <a href="#cara">Cara kerja</a>
       <a href="#fitur">Fitur</a>
       <a href="#harga">Harga</a>
@@ -48,7 +49,7 @@
         <p class="lead">Isi uang belanja harian dan bahan yang masih ada di kulkas. Dapur Hemat menyusun menu lauk dan sayur, lengkap dengan daftar belanja dan perkiraan harganya.</p>
         <div class="cta-row">
           <a class="btn" href="/app">Susun menu sekarang</a>
-          <a class="btn btn-ghost" href="#cara">Lihat cara kerja</a>
+          <a class="btn btn-ghost" href="#lihat">▶ Lihat video</a>
         </div>
         <ul class="assure" aria-label="Keunggulan">
           <li>Gratis</li>
@@ -79,6 +80,36 @@
         </div>
         <figcaption>Contoh hasil untuk keluarga 4 orang, budget Rp35.000 per hari</figcaption>
       </figure>
+    </div>
+  </section>
+
+  <!-- Video & galeri -->
+  <section id="lihat" class="section alt" aria-labelledby="lihatTitle">
+    <div class="wrap media-wrap">
+      <div class="media-copy">
+        <p class="eyebrow">Lihat cara kerjanya</p>
+        <h2 id="lihatTitle">40 detik, langsung paham</h2>
+        <p>Video ini direkam dari aplikasi Dapur Hemat yang asli: isi budget, centang bahan, lalu menu dan daftar belanja langsung jadi. Nyalakan suaranya untuk mendengar penjelasan.</p>
+        <div class="listen">
+          <button class="btn btn-ghost" id="listenBtn" type="button" aria-pressed="false">▶ Dengarkan penjelasan</button>
+          <p class="hint-sm" id="listenNote">Dibacakan dengan suara bawaan HP Ibu.</p>
+        </div>
+      </div>
+      <div class="video-frame">
+        <video id="demoVideo" controls playsinline preload="none" poster="/media/demo-poster.jpg" width="720" height="1280">
+          <source src="/media/demo.mp4" type="video/mp4">
+          Video belum bisa diputar di browser ini.
+        </video>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="gallery" role="list" aria-label="Contoh tampilan Dapur Hemat">
+        <figure role="listitem"><img src="/media/01-hero.jpg" alt="Hasil susun menu: perkiraan total belanja Rp17.500 untuk 3 hari, hemat dari budget" width="720" height="900" loading="lazy"></figure>
+        <figure role="listitem"><img src="/media/02-isi-budget.jpg" alt="Form isi budget, jumlah orang, dan centang bahan yang ada di kulkas" width="720" height="900" loading="lazy"></figure>
+        <figure role="listitem"><img src="/media/03-menu-harian.jpg" alt="Menu lauk dan sayur harian lengkap dengan cara masak" width="720" height="900" loading="lazy"></figure>
+        <figure role="listitem"><img src="/media/04-daftar-belanja.jpg" alt="Daftar belanja dengan perkiraan harga dan tombol salin ke WhatsApp" width="720" height="900" loading="lazy"></figure>
+        <figure role="listitem"><img src="/media/05-premium-mpasi.jpg" alt="Premium: rencana 30 hari dan kartu ide MPASI untuk bayi" width="720" height="900" loading="lazy"></figure>
+      </div>
     </div>
   </section>
 
@@ -298,5 +329,6 @@
     <p>Harga adalah perkiraan dan bisa berbeda di pasar Ibu.</p>
   </div>
 </footer>
+<script src="/landing.js"></script>
 </body>
 </html>

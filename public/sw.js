@@ -1,6 +1,6 @@
 /* Dapur Hemat service worker: halaman tetap terbuka saat offline.
    Naikkan VERSION setiap kali file di public/ berubah supaya pengguna mendapat versi baru. */
-const VERSION = "dh-v7";
+const VERSION = "dh-v11";
 const SHELL = ["/", "/app", "/privasi", "/styles.css", "/landing.css", "/engine.js", "/app.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -16,7 +16,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (req.method !== "GET" || url.pathname.startsWith("/api/")) return; // API selalu lewat jaringan
+  if (req.method !== "GET" || url.pathname.startsWith("/api/") || url.pathname.endsWith(".mp4")) return; // video tidak disimpan offline // API selalu lewat jaringan
 
   // Font Google: simpan setelah pertama kali dimuat
   if (url.hostname.endsWith("fonts.googleapis.com") || url.hostname.endsWith("fonts.gstatic.com")) {
