@@ -67,6 +67,7 @@ Beli domain (misalnya `dapurhemat.id`), lalu di Vercel buka **Settings → Domai
 | `GEMINI_API_KEY` | Salah satu | API key Gemini dari aistudio.google.com/apikey (ada paket gratis). Jika keduanya diisi, Gemini menjadi cadangan saat Claude gagal |
 | `AI_PROVIDER` | Tidak | Isi `gemini` supaya Gemini dipakai lebih dulu |
 | `GEMINI_MODEL` | Tidak | Bawaan `gemini-flash-latest` |
+| `GEMINI_FALLBACK_MODEL` | Tidak | Model cadangan saat model utama penuh/gagal. Bawaan `gemini-flash-lite-latest` |
 | `CLAUDE_MODEL` | Tidak | Bawaan `claude-haiku-4-5-20251001` (cepat dan hemat). Bisa diganti model yang lebih pintar jika kualitas menu kurang |
 | `LIMIT_PER_IP_HOUR` | Tidak | Bawaan 20 |
 | `LIMIT_GLOBAL_DAY` | Tidak | Bawaan 2000 |
@@ -129,3 +130,11 @@ Ubah kolom **Status** di tab **Kode** menjadi **Nonaktif**. Kode berhenti bekerj
 - Tempel ulang `apps-script/Code.gs` versi terbaru (isi lagi `RAHASIA`), cek `ALAMAT_APLIKASI` di bagian atas, lalu **Terapkan → Kelola deployment → pensil → Versi baru → Terapkan**.
 - **Muat ulang spreadsheet** supaya menu **Dapur Hemat** muncul.
 - Di Vercel tidak ada variabel wajib baru. `FEEDBACK_WEBHOOK_URL` dan `FEEDBACK_SECRET` yang sudah ada juga dipakai untuk kode Premium.
+
+## Urutan AI dan cadangan
+1. Claude (jika `ANTHROPIC_API_KEY` diisi). Jika Claude menolak karena saldo habis atau kunci salah, Claude **dilewati selama 30 menit** supaya pengguna tidak menunggu.
+2. Gemini model utama (`GEMINI_MODEL`).
+3. Gemini model cadangan yang lebih ringan (`GEMINI_FALLBACK_MODEL`).
+4. Jika semua gagal: aplikasi memakai mode cepat.
+
+Isi `AI_PROVIDER=gemini` supaya Gemini dicoba lebih dulu. Pesan error setiap penyedia tercatat lengkap di Vercel → Logs.

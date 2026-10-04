@@ -81,10 +81,10 @@ Balas HANYA dengan JSON, tanpa teks lain, dengan bentuk:
 Susun rencana menu untuk ${i.days} hari. Setiap hari berisi 1 lauk dan 1 sayur yang umum dimasak di rumah Indonesia dan bisa dimasak dalam 45 menit.
 Daftar belanja dibagi per minggu (Minggu 1 = hari 1-7, dan seterusnya; minggu terakhir boleh kurang dari 7 hari), karena sayur tidak tahan lama.
 ${rules}
-7. Supaya ringkas: "why" maksimal 8 kata, dan "steps" cukup 1 langkah sangat singkat.
+7. Supaya ringkas: "why" maksimal 6 kata, dan JANGAN sertakan "steps".
 
 Balas HANYA dengan JSON, tanpa teks lain, dengan bentuk:
-{"days":[{"label":"Hari 1","cost":25000,"lauk":{"name":"Tahu bacem","why":"pakai tahu yang ada","steps":["langkah singkat"]},"sayur":{"name":"...","why":"...","steps":["..."]}}],"weeks":[{"label":"Minggu 1","shopping":[{"item":"Tahu","qty":"20 potong","price":10000,"group":"Lauk"}]}],"tips":"1-2 kalimat tips hemat"}
+{"days":[{"label":"Hari 1","cost":25000,"lauk":{"name":"Tahu bacem","why":"pakai tahu yang ada"},"sayur":{"name":"...","why":"..."}}],"weeks":[{"label":"Minggu 1","shopping":[{"item":"Tahu","qty":"20 potong","price":10000,"group":"Lauk"}]}],"tips":"1-2 kalimat tips hemat"}
 "group" harus salah satu dari: "Lauk", "Sayur", "Bumbu & pelengkap". Jumlah elemen "days" harus tepat ${i.days}, dan "weeks" tepat ${nWeeks}.${bayiSchema(i)}`;
 }
 
@@ -158,42 +158,56 @@ async function callClaude(input) {
   return (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
 }
 
-/* Gemini dari Google AI Studio (ada paket gratis). */
+/* Gemini dari Google AI Studio (ada paket gratis).
+   Model utama gagal (kuota penuh, model tidak tersedia, jawaban terpotong) → dicoba model cadangan yang lebih ringan. */
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
-async function callGemini(input) {
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(GEMINI_MODEL) + ":generateContent";
+const GEMINI_FALLBACK = process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-lite-latest";
+const geminiCaller = (model) => async function callGemini(input) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
   const res = await fetch(url, {
     method: "POST",
     headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "content-type": "application/json" },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: [{ role: "user", parts: [{ text: buildPrompt(input) }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: input.days > 7 ? 16384 : 8192 }
+      // batas besar: model "berpikir" juga memakai jatah token ini
+      generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: input.days > 7 ? 32768 : 16384 }
     }),
     signal: AbortSignal.timeout(input.days > 7 ? 55000 : 40000)
   });
-  if (res.status === 429 || res.status === 503) throw { code: "rate_limited", detail: "gemini " + res.status };
-  if (!res.ok) throw { code: "upstream", detail: errDetail("gemini", res.status, await res.text()) };
+  if (res.status === 429 || res.status === 503) throw { code: "rate_limited", detail: errDetail(model, res.status, await res.text()) };
+  if (!res.ok) throw { code: "upstream", detail: errDetail(model, res.status, await res.text()) };
   const data = await res.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  return parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("");
+  const cand = data.candidates?.[0];
+  const text = (cand?.content?.parts || []).filter((p) => p.text && !p.thought).map((p) => p.text).join("");
+  if (cand?.finishReason && cand.finishReason !== "STOP") console.error("menu: " + model + " berhenti karena " + cand.finishReason + " (panjang teks " + text.length + ")");
+  if (!text) throw { code: "upstream", detail: model + ": jawaban kosong (" + (cand?.finishReason || data.promptFeedback?.blockReason || "tanpa alasan") + ")" };
+  return text;
+};
+
+/* Claude yang gagal karena saldo/kunci (bukan gangguan sesaat) dilewati sementara,
+   supaya pengguna tidak menunggu permintaan yang pasti gagal. */
+let claudeSkipUntil = 0;
+const CLAUDE_PAUSE_MS = 30 * 60000;
+export function noteClaudeError(e) {
+  const d = String((e && e.detail) || "");
+  if (/claude (400|401|403)\b/.test(d) && /credit|balance|billing|api key|authentication|permission/i.test(d)) claudeSkipUntil = Date.now() + CLAUDE_PAUSE_MS;
 }
+export function resetClaudePause() { claudeSkipUntil = 0; }
 
 /* Urutan penyedia: AI_PROVIDER=gemini memakai Gemini dulu; jika tidak, Claude dulu. Yang tidak punya key dilewati. */
 export function providers() {
-  const list = [];
-  if (process.env.ANTHROPIC_API_KEY) list.push(["claude", callClaude]);
-  if (process.env.GEMINI_API_KEY) list.push(["gemini", callGemini]);
-  if (list.length < 2) return list;
-  if ((process.env.AI_PROVIDER || "").toLowerCase() === "gemini") list.reverse();
-  return list;
+  const claude = process.env.ANTHROPIC_API_KEY && Date.now() >= claudeSkipUntil ? [["claude", callClaude]] : [];
+  const gemini = process.env.GEMINI_API_KEY
+    ? [["gemini", geminiCaller(GEMINI_MODEL)], ...(GEMINI_FALLBACK && GEMINI_FALLBACK !== GEMINI_MODEL ? [["gemini-lite", geminiCaller(GEMINI_FALLBACK)]] : [])]
+    : [];
+  return (process.env.AI_PROVIDER || "").toLowerCase() === "gemini" ? [...gemini, ...claude] : [...claude, ...gemini];
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return res.status(405).json({ error: "method_not_allowed" }); }
-  const list = providers();
-  if (list.length === 0) return res.status(503).json({ error: "not_configured" });
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY) return res.status(503).json({ error: "not_configured" });
 
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
@@ -209,6 +223,8 @@ export default async function handler(req, res) {
 
   const input = parseInput(body, !!premium);
 
+  let list = providers();
+  if (list.length === 0) list = [["claude", callClaude]]; // semua sedang dijeda: tetap coba Claude
   let lastErr = null;
   for (const [name, call] of list) {
     try {
@@ -219,6 +235,7 @@ export default async function handler(req, res) {
       return res.status(200).json(plan);
     } catch (e) {
       lastErr = e;
+      if (name === "claude") noteClaudeError(e);
       console.error("menu: gagal " + name + " →", e && (e.detail || e.name || e.message || e));
       // lanjut ke penyedia berikutnya jika ada
     }

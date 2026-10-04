@@ -177,9 +177,11 @@
       [["lauk", "Lauk"], ["sayur", "Sayur"], ["bayi", "Untuk bayi (MPASI)"]].forEach(([k, lab]) => {
         const x = d[k]; if (!x) return;
         const det = el("details", k === "bayi" ? "dish bayi-card" : "dish"), s = el("summary");
-        s.append(el("span", "kind " + k, lab), el("span", "dname", x.name), el("span", "why", x.why || ""), el("span", "more", "Lihat cara masak"));
+        const hasSteps = (x.steps || []).length > 0;
+        s.append(el("span", "kind " + k, lab), el("span", "dname", x.name), el("span", "why", x.why || ""));
+        if (hasSteps) s.append(el("span", "more", "Lihat cara masak"));
         const ol = el("ol"); (x.steps || []).forEach((t) => ol.append(el("li", null, t)));
-        det.append(s, ol); ds.append(det);
+        det.append(s); if (hasSteps) det.append(ol); ds.append(det);
       });
       c.append(h, ds); return c;
     };

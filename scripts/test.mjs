@@ -249,5 +249,30 @@ await ok("AI: field bayi diminta saat MPASI dan dipertahankan saat dirapikan", (
   assert.equal(p.days[0].bayi.name, "Nasi tim tahu");
 });
 
+await ok("AI: Claude saldo habis → dijeda 30 menit, langsung ke Gemini; Gemini penuh → model lite", async () => {
+  process.env.ANTHROPIC_API_KEY = "c"; process.env.GEMINI_API_KEY = "g"; delete process.env.AI_PROVIDER; menu.resetClaudePause();
+  const okPlan = JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(aiPlan) }] } }] });
+  let calls = [];
+  globalThis.fetch = async (url) => { url = String(url); calls.push(url);
+    if (url.includes("anthropic")) return new Response(JSON.stringify({ type: "error", error: { message: "Your credit balance is too low to access the Anthropic API." } }), { status: 400 });
+    if (url.includes("gemini-flash-latest")) return new Response('{"error":{"message":"quota"}}', { status: 429 });
+    return new Response(okPlan, { status: 200 }); };
+  let r = mockRes(); await menu.default(req({ days: 3 }, "6.6.6.1"), r);
+  assert.equal(r.code, 200); assert.equal(r.body.provider, "gemini-lite");
+  assert.equal(calls.length, 3);
+  calls = []; r = mockRes(); await menu.default(req({ days: 3 }, "6.6.6.2"), r);
+  assert.equal(r.code, 200); assert.ok(!calls.some((u) => u.includes("anthropic")), "Claude dilewati selama jeda");
+  menu.resetClaudePause(); delete process.env.ANTHROPIC_API_KEY; delete process.env.GEMINI_API_KEY;
+});
+await ok("AI: jawaban Gemini terpotong/kosong dicatat jelas lalu pindah ke cadangan", async () => {
+  process.env.GEMINI_API_KEY = "g";
+  globalThis.fetch = async (url) => String(url).includes("lite")
+    ? new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(aiPlan) }] } }] }))
+    : new Response(JSON.stringify({ candidates: [{ finishReason: "MAX_TOKENS", content: { parts: [{ text: '{"days":[{"label"' }] } }] }));
+  const r = mockRes(); await menu.default(req({ days: 3 }, "6.6.6.3"), r);
+  assert.equal(r.code, 200); assert.equal(r.body.provider, "gemini-lite");
+  delete process.env.GEMINI_API_KEY;
+});
+
 globalThis.fetch = realFetch;
 console.log(`\n${passed} uji lulus`);

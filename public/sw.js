@@ -1,6 +1,6 @@
 /* Dapur Hemat service worker: halaman tetap terbuka saat offline.
    Naikkan VERSION setiap kali file di public/ berubah supaya pengguna mendapat versi baru. */
-const VERSION = "dh-v6";
+const VERSION = "dh-v7";
 const SHELL = ["/", "/app", "/privasi", "/styles.css", "/landing.css", "/engine.js", "/app.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
