@@ -63,21 +63,72 @@
 
   function allowed(r, prefs) {
     if ((prefs.has("pedas") || prefs.has("anak")) && r.tag.includes("pedas")) return false;
-    if (prefs.has("ayam") && r.tag.includes("ayam")) return false;
-    if (prefs.has("ikan") && r.tag.includes("ikan")) return false;
+    if ((prefs.has("ayam") || prefs.has("vegetarian")) && r.tag.includes("ayam")) return false;
+    if ((prefs.has("ikan") || prefs.has("vegetarian")) && r.tag.includes("ikan")) return false;
+    if (prefs.has("rendahgula") && (r.i.includes("gulamerah") || r.i.includes("santan"))) return false;
     return true;
+  }
+
+  /* ---------- Diet khusus di mode cepat ---------- */
+  const usesKecap = (r) => /kecap|bacem|semur/i.test(r.n + " " + r.s.join(" "));
+
+  /* Penalti skor: masakan yang kurang cocok untuk diet tertentu dihindari bila ada pilihan lain. */
+  function dietPenalty(r, prefs) {
+    let p = 0;
+    if (prefs.has("rendahgaram") && usesKecap(r)) p += 40000;
+    if (prefs.has("rendahgula") && usesKecap(r)) p += 25000; // kecap manis
+    return p;
+  }
+
+  /* Langkah masak disesuaikan untuk diet rendah garam. */
+  function lowSaltSteps(r) {
+    const steps = r.s.map((t) => t
+      .replace(/air garam/gi, "air perasan jeruk nipis")
+      .replace(/dan garam/gi, "dan sedikit sekali garam"));
+    steps.push(usesKecap(r)
+      ? "Rendah garam: pakai kecap sedikit saja (½ sdm untuk sekeluarga) atau ganti air asam jawa + bawang goreng; jangan tambah garam lagi."
+      : r.t === "lauk"
+        ? "Rendah garam: garam cukup seujung sendok teh untuk sekeluarga, tanpa penyedap; perkuat rasa dengan bawang putih, ketumbar, kunyit, dan perasan jeruk nipis."
+        : "Rendah garam: masak tanpa penyedap; beri rasa dengan tomat, daun salam, serai, atau perasan jeruk nipis.");
+    return steps;
+  }
+
+  /* Bahan yang aman dan mudah diolah untuk MPASI (6–12 bulan), urut dari yang paling diutamakan. */
+  const MPASI_PROTEIN = {
+    ayam: "daging ayam tanpa kulit", tongkol: "ikan tongkol (buang semua durinya)", telur: "telur (pastikan matang sempurna)",
+    tahu: "tahu", tempe: "tempe"
+  };
+  const MPASI_VEG = {
+    wortel: "wortel", labusiam: "labu siam", kentang: "kentang", bayam: "bayam (daunnya saja)", jagung: "jagung manis (pipil, saring kulitnya)",
+    kol: "kol", sawi: "sawi hijau (daunnya saja)", kacangpanjang: "kacang panjang", kangkung: "kangkung (daunnya saja)", terong: "terong (tanpa kulit)"
+  };
+  function mpasiDish(l, v) {
+    const keys = [...l.i, ...v.i];
+    const prot = Object.keys(MPASI_PROTEIN).find((k) => keys.includes(k));
+    const veg = Object.keys(MPASI_VEG).find((k) => keys.includes(k));
+    if (!prot && !veg) return null;
+    const parts = [prot && MPASI_PROTEIN[prot], veg && MPASI_VEG[veg]].filter(Boolean);
+    const short = [prot && ING[prot].n.toLowerCase(), veg && ING[veg].n.toLowerCase()].filter(Boolean).join(" & ");
+    const steps = [
+      "Sisihkan sedikit " + parts.join(" dan ") + " sebelum dibumbui. Jangan pakai cabai, garam, gula, atau kecap.",
+      "Kukus atau rebus sampai sangat lunak" + (prot === "telur" ? " (telur direbus 10 menit sampai matang)" : "") + ", lalu haluskan dengan sedikit air rebusan.",
+      "Usia 6–8 bulan: saring sampai halus seperti bubur. Usia 9–12 bulan: cincang halus atau lumatkan kasar. Campur dengan nasi tim."
+    ];
+    if (prot === "telur") steps.push("Kenalkan telur sedikit dulu dan perhatikan tanda alergi (ruam, muntah) selama 3 hari.");
+    return { name: "Nasi tim " + short, why: "Dari bahan menu hari ini, tanpa belanja tambahan", steps };
   }
 
   /* input: {budget, ppl, days, owned: [keys], extra: "", prefs: [keys]} */
   function localPlan(input) {
     const budget = Number(input.budget) || 0;
     const ppl = Math.max(1, Number(input.ppl) || 4);
-    const nDays = Math.max(1, Math.min(7, Number(input.days) || 1));
+    const nDays = Math.max(1, Math.min(30, Number(input.days) || 1));
     const prefs = new Set(input.prefs || []);
     const scale = ppl / 4;
     const ownedAll = resolveOwned(input.owned, input.extra);
     const have = new Set(ownedAll);
-    const used = new Map(), days = [], buy = {};
+    const recent = [], days = [], buyWeeks = [];
+    const usedRecently = (name) => recent.slice(-12).filter((x) => x === name).length; // 6 hari terakhir (lauk + sayur)
     const L = R.filter((r) => r.t === "lauk" && allowed(r, prefs));
     const V = R.filter((r) => r.t === "sayur" && allowed(r, prefs));
     let prevMain = null;
@@ -90,13 +141,15 @@
         keys.forEach((k) => { if (have.has(k)) own++; else cost += r500(ING[k].p * scale); });
         let score = own * 6000 - cost;
         if (cost > budget) score -= 50000 + (cost - budget) * 2;
-        score -= (used.get(l.n) || 0) * 60000;
-        score -= (used.get(v.n) || 0) * 35000;
+        score -= usedRecently(l.n) * 60000;
+        score -= usedRecently(v.n) * 35000;
         if (prevMain && l.i[0] === prevMain) score -= 12000;
         if (prefs.has("anak") && l.tag.includes("anak")) score += 1500;
+        score -= dietPenalty(l, prefs) + dietPenalty(v, prefs);
         if (!best || score > best.score) best = { l, v, keys, cost, score };
       }
       const { l, v, keys, cost } = best;
+      const buy = (buyWeeks[Math.floor(d / 7)] = buyWeeks[Math.floor(d / 7)] || {});
       keys.forEach((k) => {
         if (have.has(k)) { have.delete(k); }
         else {
@@ -105,24 +158,34 @@
           buy[k].p += r500(ING[k].p * scale);
         }
       });
-      used.set(l.n, (used.get(l.n) || 0) + 1); used.set(v.n, (used.get(v.n) || 0) + 1); prevMain = l.i[0];
+      recent.push(l.n, v.n); prevMain = l.i[0];
       const why = (x) => {
         const o = x.i.filter((k) => ownedAll.has(k));
         return o.length ? "Pakai " + o.map((k) => ING[k].n.toLowerCase()).join(", ") + " yang sudah ada" : "Murah dan cepat dimasak";
       };
-      days.push({ label: "Hari " + (d + 1), cost, lauk: { name: l.n, why: why(l), steps: l.s }, sayur: { name: v.n, why: why(v), steps: v.s } });
+      const steps = (r) => (prefs.has("rendahgaram") ? lowSaltSteps(r) : r.s);
+      const day = { label: "Hari " + (d + 1), cost, lauk: { name: l.n, why: why(l), steps: steps(l) }, sayur: { name: v.n, why: why(v), steps: steps(v) } };
+      if (prefs.has("mpasi")) { const b = mpasiDish(l, v); if (b) day.bayi = b; }
+      days.push(day);
     }
 
     const fmtQ = (q, u) => {
       const v = u === "kg" ? Math.round(q * 100) / 100 : Math.ceil(q * 2) / 2;
       return String(v).replace(".", ",") + " " + u;
     };
-    const shopping = Object.entries(buy).map(([k, b]) => ({ item: ING[k].n, qty: fmtQ(b.q, ING[k].u), price: b.p, group: ING[k].g }));
-    const total = shopping.reduce((a, b) => a + b.price, 0);
+    const toList = (buy) => Object.entries(buy || {}).map(([k, b]) => ({ item: ING[k].n, qty: fmtQ(b.q, ING[k].u), price: b.p, group: ING[k].g }));
+    const weeks = nDays > 7 ? buyWeeks.map((b, i) => ({ label: "Minggu " + (i + 1), shopping: toList(b) })) : null;
+    const shopping = weeks ? [] : toList(buyWeeks[0]);
+    const total = weeks ? weeks.reduce((a, w) => a + w.shopping.reduce((x, y) => x + y.price, 0), 0) : shopping.reduce((a, b) => a + b.price, 0);
     const tips = total > budget * nDays
       ? "Budget agak mepet. Coba tambah tempe atau tahu sebagai lauk utama, atau kurangi ayam dan ikan menjadi 2 kali seminggu."
       : "Belanja sayur hijau (kangkung, bayam) untuk 1–2 hari pertama saja karena cepat layu. Wortel, kentang, dan labu siam tahan lebih lama.";
-    return { days, shopping, tips, source: "local" };
+    const dietTips = [];
+    if (prefs.has("rendahgaram")) dietTips.push("Untuk diet rendah garam, hindari ikan asin, mi instan, dan makanan kemasan.");
+    if (prefs.has("rendahgula")) dietTips.push("Untuk ramah diabetes, perbanyak sayur, batasi nasi putih, dan pilih kecap asin daripada kecap manis.");
+    if (prefs.has("mpasi")) dietTips.push("Untuk MPASI, ikuti saran bidan atau dokter anak, terutama soal alergi dan tekstur.");
+    const allTips = [tips, ...dietTips].join(" ");
+    return weeks ? { days, weeks, shopping, tips: allTips, source: "local" } : { days, shopping, tips: allTips, source: "local" };
   }
 
   const api = { ING, R, localPlan, resolveOwned };

@@ -106,3 +106,26 @@ Halaman `/order` menerima pesanan Dapur Hemat Premium. Alurnya:
 
 ### Mengubah harga dan manfaat
 Harga dan manfaat paket ada di `api/_lib/products.js`. Bagian **Harga** di landing page (`public/index.html`, cari `id="harga"`) menulis ulang harga dan manfaat yang sama, jadi ubah keduanya bersamaan. Pastikan manfaat yang dijanjikan memang Anda berikan kepada pelanggan.
+
+## Kode Premium (aktivasi)
+
+Fitur Premium di aplikasi: rencana **14 dan 30 hari** dengan belanja per minggu, **diet khusus** (rendah garam, ramah diabetes, MPASI, vegetarian), dan kuota AI lebih longgar. Fitur ini terbuka dengan kode berbentuk `DH-XXXX-XXXX`.
+
+### Alur untuk Anda
+1. Pesanan masuk ke tab **Pesanan**. Cocokkan transfer dengan kolom **Total transfer**.
+2. Ubah **Status** pesanan itu menjadi **Lunas** (ada pilihan dropdown). Kode dibuat otomatis:
+   - kolom **Kode Premium** terisi,
+   - tab **Kode** mendapat baris baru (berlaku sampai = hari ini + jumlah bulan paket),
+   - kolom **Kirim ke WA** berisi tautan **Kirim kode**. Klik, lalu tekan kirim di WhatsApp. Pesannya sudah berisi kode, masa berlaku, dan cara memakainya.
+3. Cara lain: pilih baris pesanan, lalu menu **Dapur Hemat → Buat kode untuk baris terpilih**. Untuk hadiah atau uji coba tanpa pesanan: **Dapur Hemat → Buat kode tanpa pesanan…**
+
+### Alur untuk pelanggan
+Buka aplikasi (`/app`), tekan **Punya kode Premium?**, masukkan kode, lalu tekan **Aktifkan**. Kode tersimpan di HP itu sampai masa berlakunya habis.
+
+### Menonaktifkan kode
+Ubah kolom **Status** di tab **Kode** menjadi **Nonaktif**. Kode berhenti bekerja paling lama dalam 3 hari, karena aplikasi mengecek ulang kode setiap 3 hari. Kolom **Dipakai** dan **Terakhir dipakai** membantu melihat kode yang dipakai terlalu sering, misalnya kalau dibagikan ke banyak orang.
+
+### Yang perlu diatur
+- Tempel ulang `apps-script/Code.gs` versi terbaru (isi lagi `RAHASIA`), cek `ALAMAT_APLIKASI` di bagian atas, lalu **Terapkan → Kelola deployment → pensil → Versi baru → Terapkan**.
+- **Muat ulang spreadsheet** supaya menu **Dapur Hemat** muncul.
+- Di Vercel tidak ada variabel wajib baru. `FEEDBACK_WEBHOOK_URL` dan `FEEDBACK_SECRET` yang sudah ada juga dipakai untuk kode Premium.

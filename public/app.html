@@ -37,6 +37,28 @@
   </div>
   <p class="offline" id="offline" hidden>Sedang offline. Menu tetap bisa disusun dengan mode cepat.</p>
 
+  <section class="prem" id="prem" aria-label="Dapur Hemat Premium">
+    <div class="prem-row" id="premOff">
+      <p><b>Premium:</b> rencana 14 &amp; 30 hari dan diet khusus.</p>
+      <div class="row">
+        <button class="copy" id="premOpen" type="button" aria-expanded="false" aria-controls="premForm">Punya kode Premium?</button>
+        <a class="ghost" href="/order">Pesan Premium</a>
+      </div>
+    </div>
+    <form class="prem-form" id="premForm" hidden novalidate>
+      <label class="label" for="premCode">Kode Premium</label>
+      <div class="row">
+        <input id="premCode" class="textin code-in" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DH-XXXX-XXXX" maxlength="14">
+        <button class="copy" id="premGo" type="submit">Aktifkan</button>
+      </div>
+      <p class="hint" id="premMsg" role="status"></p>
+    </form>
+    <div class="prem-row" id="premOn" hidden>
+      <p><span class="prem-badge">Premium aktif</span> <span id="premUntil"></span></p>
+      <button class="ghost" id="premOut" type="button">Hapus kode dari HP ini</button>
+    </div>
+  </section>
+
   <div class="grid">
     <form class="form" id="f" novalidate>
       <div class="field">
@@ -47,15 +69,14 @@
         <div class="row" id="budgetQuick"></div>
       </div>
 
-      <div class="row spread">
-        <div class="field">
-          <span class="label">Jumlah orang</span>
-          <div class="stepper"><button type="button" id="minus" aria-label="Kurangi orang">−</button><output id="ppl">4 orang</output><button type="button" id="plus" aria-label="Tambah orang">+</button></div>
-        </div>
-        <div class="field">
-          <span class="label">Rencana untuk</span>
-          <div class="seg" id="days"></div>
-        </div>
+      <div class="field">
+        <span class="label">Jumlah orang</span>
+        <div class="stepper"><button type="button" id="minus" aria-label="Kurangi orang">−</button><output id="ppl">4 orang</output><button type="button" id="plus" aria-label="Tambah orang">+</button></div>
+      </div>
+
+      <div class="field">
+        <span class="label">Rencana untuk</span>
+        <div class="seg" id="days"></div>
       </div>
 
       <div class="field">
@@ -67,6 +88,11 @@
       <div class="field">
         <span class="label">Keluarga</span>
         <div class="row" id="prefs"></div>
+      </div>
+
+      <div class="field">
+        <span class="label">Diet khusus <span class="lock-note">Premium</span></span>
+        <div class="row" id="diets"></div>
       </div>
 
       <div class="field">

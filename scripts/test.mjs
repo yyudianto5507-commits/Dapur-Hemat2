@@ -175,5 +175,79 @@ await ok("order: tanpa cara bayar di env, pesanan tetap bisa (admin menghubungi)
   assert.equal(r.code, 200); assert.equal(r.body.method, null);
 });
 
+/* Premium */
+const prem = await import("../api/_lib/premium.js");
+const premApi = await import("../api/premium.js");
+await ok("premium: format kode dinormalkan, token sah & kedaluwarsa terdeteksi", () => {
+  process.env.FEEDBACK_SECRET = "rahasia-uji-123";
+  assert.equal(prem.normalizeCode(" dh-ab12 cd34 "), "DH-AB12-CD34");
+  assert.equal(prem.normalizeCode("ab12cd34"), "DH-AB12-CD34");
+  assert.equal(prem.normalizeCode("DH-123"), "");
+  const now = Date.parse("2026-10-04T10:00:00+07:00");
+  const tok = prem.makeToken({ kode: "DH-AB12-CD34", sampai: "2026-11-04", paket: "Premium 1 bulan" }, now);
+  assert.equal(prem.readToken(tok, now).k, "DH-AB12-CD34");
+  assert.equal(prem.readToken(tok, now + 4 * 86400000), null, "token maksimal 3 hari");
+  const short = prem.makeToken({ kode: "DH-AB12-CD34", sampai: "2026-10-04" }, now);
+  assert.equal(prem.readToken(short, Date.parse("2026-10-05T00:00:01+07:00")), null, "berhenti di akhir masa Premium");
+  const [pl, sig] = tok.split(".");
+  const forged = Buffer.from(JSON.stringify({ k: "DH-AB12-CD34", exp: now * 2 })).toString("base64url") + "." + sig;
+  assert.equal(prem.readToken(forged, now), null, "token palsu ditolak");
+});
+await ok("premium API: kode sah → token; salah → pesan jelas; format salah → 400", async () => {
+  process.env.FEEDBACK_WEBHOOK_URL = "https://script.google.com/macros/s/x/exec";
+  let sent;
+  globalThis.fetch = async (url, opt) => { sent = JSON.parse(opt.body);
+    return new Response(JSON.stringify(sent.row.kode === "DH-AB12-CD34" ? { ok: true, valid: true, sampai: "2099-01-01", paket: "Premium 3 bulan", nama: "Siti" } : { ok: true, valid: false, reason: "kedaluwarsa" }), { status: 200 }); };
+  let r = mockRes(); await premApi.default(req({ kode: "dh-ab12-cd34" }, "8.8.8.1"), r);
+  assert.equal(r.code, 200); assert.equal(sent.type, "verify"); assert.ok(prem.readToken(r.body.token));
+  r = mockRes(); await premApi.default(req({ kode: "DH-ZZZZ-ZZZZ" }, "8.8.8.1"), r);
+  assert.equal(r.code, 404); assert.match(r.body.message, /habis/);
+  r = mockRes(); await premApi.default(req({ kode: "halo" }, "8.8.8.1"), r);
+  assert.equal(r.code, 400);
+});
+await ok("menu: 30 hari / diet khusus tanpa token → 402; dengan token → rencana per minggu", async () => {
+  process.env.GEMINI_API_KEY = "g"; delete process.env.ANTHROPIC_API_KEY;
+  let r = mockRes(); await menu.default(req({ days: 30 }, "8.8.8.2"), r); assert.equal(r.code, 402);
+  r = mockRes(); await menu.default(req({ days: 3, prefs: ["mpasi"] }, "8.8.8.2"), r); assert.equal(r.code, 402);
+  const tok = prem.makeToken({ kode: "DH-AB12-CD34", sampai: "2099-01-01" });
+  const long = { days: Array.from({ length: 30 }, (_, i) => ({ label: "Hari " + (i + 1), cost: 20000, lauk: { name: "L" + i, why: "x", steps: ["a"] }, sayur: { name: "S" + i, why: "y", steps: [] } })),
+    weeks: Array.from({ length: 5 }, (_, i) => ({ label: "Minggu " + (i + 1), shopping: [{ item: "Tahu", qty: "20 potong", price: 10000, group: "Lauk" }] })), tips: "t" };
+  let prompt;
+  globalThis.fetch = async (url, opt) => { prompt = JSON.parse(opt.body).contents[0].parts[0].text; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(long) }] } }] }), { status: 200 }); };
+  const rq = req({ days: 30, prefs: ["mpasi", "rendahgaram", "anak"] }, "8.8.8.3"); rq.headers["x-premium-token"] = tok;
+  r = mockRes(); await menu.default(rq, r);
+  assert.equal(r.code, 200); assert.equal(r.body.days.length, 30); assert.equal(r.body.weeks.length, 5);
+  assert.ok(prompt.includes("MPASI") && prompt.includes("rendah garam") && prompt.includes("per minggu"));
+  delete process.env.GEMINI_API_KEY;
+});
+await ok("mesin lokal: 30 hari vegetarian, belanja dibagi 5 minggu, tanpa ayam/ikan", () => {
+  const p = localPlan({ budget: 35000, ppl: 4, days: 30, owned: [], prefs: ["vegetarian"] });
+  assert.equal(p.days.length, 30); assert.equal(p.weeks.length, 5);
+  assert.ok(!p.days.some((d) => /\bayam\b|tongkol/i.test(d.lauk.name + " " + d.sayur.name)));
+  const first7 = p.days.slice(0, 7).map((d) => d.lauk.name); assert.equal(new Set(first7).size, 7);
+});
+
+await ok("mode cepat: rendah garam menghindari menu kecap dan memberi langkah rendah garam", () => {
+  const p = localPlan({ budget: 35000, ppl: 4, days: 7, owned: ["tempe", "tahu"], prefs: ["rendahgaram"] });
+  assert.ok(!p.days.some((d) => /kecap|bacem|semur/i.test(d.lauk.name)), p.days.map((d) => d.lauk.name).join(", "));
+  assert.ok(p.days.every((d) => d.lauk.steps.some((s) => s.startsWith("Rendah garam")) && d.sayur.steps.some((s) => s.startsWith("Rendah garam"))));
+  assert.ok(!p.days.some((d) => d.lauk.steps.some((s) => /air garam/.test(s))));
+});
+await ok("mode cepat: MPASI menambah kartu bayi tanpa cabai/garam dan tanpa belanja tambahan", () => {
+  const base = localPlan({ budget: 35000, ppl: 4, days: 7, owned: [], prefs: ["anak"] });
+  const p = localPlan({ budget: 35000, ppl: 4, days: 7, owned: [], prefs: ["anak", "mpasi"] });
+  assert.ok(p.days.every((d) => d.bayi && d.bayi.steps.length >= 3));
+  assert.ok(p.days.every((d) => !/cabai|tauge/i.test(d.bayi.name)));
+  assert.equal(JSON.stringify(p.shopping), JSON.stringify(base.shopping));
+  assert.match(p.tips, /bidan/);
+});
+await ok("AI: field bayi diminta saat MPASI dan dipertahankan saat dirapikan", () => {
+  const i = menu.parseInput({ days: 3, prefs: ["mpasi"] }, true);
+  assert.match(menu.buildPrompt(i), /"bayi"/);
+  assert.doesNotMatch(menu.buildPrompt(menu.parseInput({ days: 3 }, true)), /"bayi"/);
+  const p = menu.normalizePlan({ days: [{ label: "Hari 1", lauk: { name: "A" }, sayur: { name: "B" }, bayi: { name: "Nasi tim tahu", steps: ["x"] } }], shopping: [] }, 1);
+  assert.equal(p.days[0].bayi.name, "Nasi tim tahu");
+});
+
 globalThis.fetch = realFetch;
 console.log(`\n${passed} uji lulus`);

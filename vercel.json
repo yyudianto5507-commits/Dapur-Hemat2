@@ -35,5 +35,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/menu.js": {
+      "maxDuration": 60
+    }
+  }
 }
